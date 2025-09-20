@@ -181,7 +181,7 @@ def readCommand(argv):
     return options
 
 
-def getEnv(domain, render_mode=""):
+def getEnv(domain, render_mode=None):
     if domain == "Blackjack":
         return BlackjackEnv()
     elif domain == "Gridworld":
@@ -192,8 +192,12 @@ def getEnv(domain, render_mode=""):
         return WindyGridworldEnv()
     else:
         try:
-            return gym.make(domain, render_mode=render_mode)
-        except:
+            if render_mode is None:
+                return gym.make(domain)
+            else:
+                return gym.make(domain, render_mode=render_mode)
+        except Exception as e:
+            print(f"Error creating environment {domain}: {e}")
             assert False, "Domain must be a valid (and installed) Gym environment"
 
 
