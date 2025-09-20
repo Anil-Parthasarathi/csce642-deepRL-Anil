@@ -10,6 +10,7 @@ import numpy as np
 import heapq
 from Solvers.Abstract_Solver import AbstractSolver, Statistics
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class ValueIteration(AbstractSolver):
     def __init__(self, env, eval_env, options):
@@ -71,6 +72,11 @@ class ValueIteration(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
+
+            # Gets the action value vector and then updates value function with the max action value
+
+            action_values = self.one_step_lookahead(each_state)
+            self.V[each_state] = np.max(action_values)
 
         # Dont worry about this part
         self.statistics[Statistics.Rewards.value] = np.sum(self.V)
@@ -140,7 +146,10 @@ class ValueIteration(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
-            
+
+            values = self.one_step_lookahead(state)
+
+            return np.argmax(values)
 
         return policy_fn
 
@@ -192,6 +201,17 @@ class AsynchVI(ValueIteration):
         # Do a one-step lookahead to find the best action       #
         # Update the value function. Ref: Sutton book eq. 4.10. #
         #########################################################
+
+        prioritized_state = self.pq.pop() # Get the prioritized state from the priority queue
+        
+        action_values = self.one_step_lookahead(prioritized_state)
+        self.V[prioritized_state] = np.max(action_values)
+
+        # Go through the predecessors to this state and update their prioritys
+        for predecessor in self.pred.get(prioritized_state, []):
+            # The priority is set to the absolute value of state value minus bellman update for this state
+            # I.e. the expected change in state value
+            self.pq.update(predecessor, -abs(self.V[predecessor] - np.max(self.one_step_lookahead(predecessor))))
 
         # you can ignore this part
         self.statistics[Statistics.Rewards.value] = np.sum(self.V)
