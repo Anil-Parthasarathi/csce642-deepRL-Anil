@@ -9,6 +9,8 @@
 import numpy as np
 from Solvers.Abstract_Solver import AbstractSolver, Statistics
 
+# Citation: copilot code completion assistance was utilized throughout
+
 def get_random_policy(num_states, num_actions):
     policy = np.zeros([num_states, num_actions])
     for s_idx in range(num_states):
@@ -58,6 +60,12 @@ class PolicyIteration(AbstractSolver):
             #   YOUR IMPLEMENTATION HERE   #
             ################################
 
+            # First, find best action for this state
+            best_action = np.argmax(self.one_step_lookahead(s))
+
+            # Next, update the policy for this state
+            self.policy[s, :] = 0
+            self.policy[s, best_action] = 1 # Best action is set to 1 while the rest become 0
 
         # In DP methods we don't interact with the environment so we will set the reward to be the sum of state values
         # and the number of steps to -1 representing an invalid value
@@ -103,6 +111,29 @@ class PolicyIteration(AbstractSolver):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        discount_factor = self.options.gamma  
+        num_states = self.env.observation_space.n
+        num_actions = self.env.action_space.n
+
+        transition_matrix = np.zeros((num_states, num_states))
+        reward_vector = np.zeros(num_states)
+
+        for state in range(num_states):
+            for action in range(num_actions):
+                if self.policy[state, action] == 1:
+                    for probability, next_state, reward, done in self.env.P[state][action]:
+                        transition_matrix[state, next_state] += probability
+                        reward_vector[state] += probability * reward
+
+        # Special case: discount factor = 0
+        if discount_factor == 0:
+            self.V = reward_vector
+            return
+        
+        # Solve the system
+        identity = np.identity(num_states)
+        self.V = np.linalg.solve(identity - (discount_factor * transition_matrix), reward_vector)
 
     def create_greedy_policy(self):
         """
