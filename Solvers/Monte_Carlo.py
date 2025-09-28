@@ -11,6 +11,7 @@ import numpy as np
 from Solvers.Abstract_Solver import AbstractSolver
 from lib import plotting
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class MonteCarlo(AbstractSolver):
     def __init__(self, env, eval_env, options):
@@ -66,6 +67,43 @@ class MonteCarlo(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        for _ in range(self.options.steps):
+            # Get probabilities for each action
+            probs = self.policy(state)
+            # Choose an action based on the probabilities
+            action_index = np.random.choice(np.arange(len(probs)), p=probs)
+            # Take action and observe reward and next state
+            next_state, reward, done, _ = self.step(action_index)
+
+            episode.append((state, action_index, reward))
+            
+            # If the state is terminal, end the episode
+            if done:
+                break
+            state = next_state
+
+        # Now find the first occurances for each state, action pair
+        first_occurance_dict = {}
+        for step_num in range(len(episode)):
+            state, action, reward = episode[step_num]
+            if (state, action) not in first_occurance_dict:
+                # Calculate the return
+                return_val = 0
+                for future_step in range(step_num, len(episode)):
+                    _, _, future_reward = episode[future_step]
+                    return_val += (discount_factor ** (future_step - step_num)) * future_reward
+
+                first_occurance_dict[(state, action)] = return_val
+
+        # Now update Q
+        for (state, action), reward in first_occurance_dict.items():
+            self.returns_sum[(state, action)] += reward
+            self.returns_count[(state, action)] += 1
+            self.Q[state][action] = self.returns_sum[(state, action)] / self.returns_count[(state, action)]
+
+        
+
+
     def __str__(self):
         return "Monte Carlo"
 
@@ -91,6 +129,18 @@ class MonteCarlo(AbstractSolver):
             #   YOUR IMPLEMENTATION HERE   #
             ################################
 
+            # Find the most valuable action
+            max_action_value = np.max(self.Q[observation])
+
+            # Based on epsilon, create the probability distribution
+            # Keep all actions equally probable, then add the extra
+            # probability to the best action
+
+            probs = np.ones(nA) * self.options.epsilon / nA
+            best_actions = np.flatnonzero(self.Q[observation] == max_action_value)
+            probs[best_actions[0]] += (1.0 - self.options.epsilon)
+            return probs
+
         return policy_fn
 
     def create_greedy_policy(self):
@@ -109,6 +159,10 @@ class MonteCarlo(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
+
+            # Greedily select the best action
+
+            return np.argmax(self.Q[state])
 
 
         return policy_fn
@@ -163,7 +217,40 @@ class OffPolicyMC(MonteCarlo):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        discount_factor = self.options.gamma
+
+        # Generate the episode
+
+        for _ in range(self.options.steps):
+            probs = self.behavior_policy(state)
+            action_index = np.random.choice(np.arange(len(probs)), p=probs)
+            next_state, reward, done, _ = self.step(action_index)
+
+            episode.append((state, action_index, reward))
+            
+            if done:
+                break
+            state = next_state
         
+        # Now time to update Q using weighted importance sampling
+
+        g = 0
+        w = 1
+
+        # Iterate over the episode steps backwards
+        for step_num in range(len(episode)):
+            state, action, reward = episode[len(episode) - step_num - 1]
+            
+            g = (discount_factor * g) + reward
+
+            self.C[state][action] += w
+            self.Q[state][action] += (w / self.C[state][action]) * (g - self.Q[state][action])
+
+            if action != self.target_policy(state):
+                break
+
+            w /= self.behavior_policy(state)[action]
 
     def create_random_policy(self):
         """
