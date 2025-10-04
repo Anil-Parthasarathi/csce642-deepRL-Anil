@@ -48,6 +48,26 @@ class Sarsa(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        for _ in range(self.options.steps):
+
+            # Get the probs for each action and choose one
+            action_probs = self.epsilon_greedy_action(state)
+            action_index = np.random.choice(np.arange(len(action_probs)), p=action_probs)
+
+            next_state, reward, done, _ = self.step(action_index)
+
+            # Get the probs for each action in the next state and choose one
+            next_action_probs = self.epsilon_greedy_action(next_state)
+            next_action_index = np.random.choice(np.arange(len(next_action_probs)), p=next_action_probs)
+
+            # Update the Q value
+            self.Q[state][action_index] += self.options.alpha * (reward + self.options.gamma * self.Q[next_state][next_action_index] - self.Q[state][action_index])
+
+            if done:
+                break
+
+            state = next_state
+
     def __str__(self):
         return "Sarsa"
 
@@ -63,6 +83,9 @@ class Sarsa(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
+
+            # Just get the highest value action
+            return np.argmax(self.Q[state])
 
         return policy_fn
 
@@ -80,6 +103,16 @@ class Sarsa(AbstractSolver):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        # Based on the epsilon value either pick random action or the best action
+
+        probs = np.ones(self.env.action_space.n)
+        probs *= (self.options.epsilon / self.env.action_space.n)
+
+        best_action_index = np.argmax(self.Q[state])
+        probs[best_action_index] += (1.0 - self.options.epsilon)
+        
+        return probs
 
     def plot(self, stats, smoothing_window=20, final=False):
         plotting.plot_episode_stats(stats, smoothing_window, final=final)

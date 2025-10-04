@@ -18,6 +18,7 @@ from sklearn.linear_model import SGDRegressor
 from Solvers.Abstract_Solver import AbstractSolver
 from lib import plotting
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class QLearning(AbstractSolver):
     def __init__(self, env, eval_env, options):
@@ -55,6 +56,25 @@ class QLearning(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        # First run an episode
+
+        num_steps = self.options.steps
+        for _ in range(num_steps):
+            # Get the probs for each action and choose one
+            policy_probs = self.epsilon_greedy_action(state)  
+            action_index = np.random.choice(np.arange(self.env.action_space.n), p=policy_probs) 
+
+            next_state, reward, done, _ = self.step(action_index)
+
+            # Update the Q value
+
+            self.Q[state][action_index] += self.options.alpha * (reward + self.options.gamma * np.max(self.Q[next_state]) - self.Q[state][action_index])
+
+            if done:
+                break
+            
+            state = next_state
+
     def __str__(self):
         return "Q-Learning"
 
@@ -75,7 +95,10 @@ class QLearning(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
-            return -1
+
+            # Just get the highest value action
+
+            return np.argmax(self.Q[state])
 
         return policy_fn
 
@@ -94,6 +117,16 @@ class QLearning(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        # Based on the epsilon value either pick random action or the best action
+
+        probs = np.ones(self.env.action_space.n)
+
+        probs *= (self.options.epsilon / self.env.action_space.n)
+
+        best_action_index = np.argmax(self.Q[state])
+        probs[best_action_index] += (1.0 - self.options.epsilon)
+        
+        return probs
 
 class ApproxQLearning(QLearning):
     # MountainCar-v0
@@ -123,6 +156,23 @@ class ApproxQLearning(QLearning):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        for _ in range(self.options.steps):
+
+            # Get the probs for each action and choose one
+            action_probs = self.epsilon_greedy(state)
+            action_index = np.random.choice(np.arange(self.env.action_space.n), p=action_probs)
+            next_state, reward, done, _ = self.step(action_index)
+
+            # Update the estimator
+
+            self.estimator.update(state, action_index, reward + self.options.gamma * np.max(self.estimator.predict(next_state)))
+
+            if done:
+                break
+
+            state = next_state
+
+
     def __str__(self):
         return "Approx Q-Learning"
 
@@ -141,6 +191,20 @@ class ApproxQLearning(QLearning):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        # Based on the epsilon value either pick random action or the best action
+
+        nA = self.env.action_space.n
+
+        probs = np.ones(nA) * self.options.epsilon / nA
+
+        values = self.estimator.predict(state)
+        best_action = np.argmax(values)
+
+        probs[best_action] += (1.0 - self.options.epsilon)
+        return probs
+
+
+
     def create_greedy_policy(self):
         """
         Creates a greedy policy based on Q values from self.estimator.predict(s,a=None)
@@ -155,7 +219,9 @@ class ApproxQLearning(QLearning):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
-            return -1
+
+            # Get the best action based on the estimator prediction
+            return np.argmax(self.estimator.predict(state, a=None))
             
 
         return policy_fn
