@@ -11,6 +11,7 @@ import numpy as np
 from Solvers.Abstract_Solver import AbstractSolver
 from lib import plotting
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class Sarsa(AbstractSolver):
     def __init__(self, env, eval_env, options):

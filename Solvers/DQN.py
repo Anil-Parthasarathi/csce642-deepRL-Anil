@@ -20,6 +20,7 @@ from torch.optim import AdamW
 from Solvers.Abstract_Solver import AbstractSolver
 from lib import plotting
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class QFunction(nn.Module):
     """
@@ -102,6 +103,21 @@ class DQN(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        state_tensor = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+
+        # Find the predicted q values and select best action index
+        predicted_q_values = self.model(state_tensor)
+        best_action_index = torch.argmax(predicted_q_values)
+
+        # Get the action probabilities with epsilon greedy
+        num_available_actions = self.env.action_space.n
+        action_probabilities = np.ones(num_available_actions) * (
+            self.options.epsilon / num_available_actions
+        )
+
+        action_probabilities[best_action_index] += 1.0 - self.options.epsilon
+
+        return action_probabilities
 
     def compute_target_values(self, next_states, rewards, dones):
         """
@@ -114,6 +130,12 @@ class DQN(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        # Predict the next values using the target model
+        next_values = self.target_model(next_states)
+        maximum_next_values, _ = torch.max(next_values, dim=1)
+        target_q_values = ((1 - dones) * self.options.gamma * maximum_next_values) + rewards
+
+        return target_q_values
 
     def replay(self):
         """
@@ -188,6 +210,34 @@ class DQN(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
+
+            # Get the epsilon greedy action probabilities
+            # Then select an action based on these probabilities
+            action_probs = self.epsilon_greedy(state)
+            selected_action_index = np.random.choice(
+                np.arange(len(action_probs)), p=action_probs    
+            )
+
+            # Take a step and ge the next state and reward
+            next_state, reward, done, _ = self.step(selected_action_index)
+
+            # Store the transition in memory
+            self.memorize(state, selected_action_index, reward, next_state, done)
+
+            # Perform replay to update model
+            self.replay()
+
+            self.n_steps += 1
+
+            # copy parameters from the Q estimator to the target estimator every n steps
+            if self.n_steps % self.options.update_target_estimator_every == 0:
+                self.update_target_model()
+
+            state = next_state
+
+            if done:
+                break
+
 
 
     def __str__(self):
