@@ -77,6 +77,20 @@ class Reinforce(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        returns_per_step = []
+
+        cumulative_rewards = 0
+
+        # Go through the list of rewards backwards
+        # For each step, compute the cumulative discounted reward
+
+        for reward_count in range(len(rewards)):
+            reward_index = len(rewards) - 1 - reward_count
+            cumulative_rewards = rewards[reward_index] + (gamma * cumulative_rewards)
+            returns_per_step.insert(0, cumulative_rewards)
+
+        return returns_per_step
+
     def select_action(self, state):
         """
         Selects an action given state.
@@ -139,6 +153,24 @@ class Reinforce(AbstractSolver):
             # at the END of an episode.    #
             ################################
 
+            # Set next action and take step
+
+            action, prob, baseline = self.select_action(state)
+            next_state, reward, terminated, _ = self.step(action)
+
+            # Collect the reward, prob, and baseline values
+            
+            rewards.append(reward)
+            action_probs.append(prob)
+            baselines.append(baseline)
+
+            # If this is the end of the episode, update the model and break
+
+            if terminated:
+                self.update_model(rewards, action_probs, baselines)
+                break
+
+            state = next_state
 
     def pg_loss(self, advantage, prob):
         """
@@ -159,6 +191,12 @@ class Reinforce(AbstractSolver):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        # Compute the policy gradient loss
+
+        loss = -torch.log(prob) * advantage
+
+        return loss
 
 
     def __str__(self):
