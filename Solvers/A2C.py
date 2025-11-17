@@ -17,6 +17,7 @@ from torch.optim import Adam
 from Solvers.Abstract_Solver import AbstractSolver
 from lib import plotting
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class ActorCriticNetwork(nn.Module):
     def __init__(self, obs_dim, act_dim, hidden_sizes):
@@ -131,6 +132,37 @@ class A2C(AbstractSolver):
             # an episode.                  # 
             ################################
 
+            # Select action
+
+            action, prob, value = self.select_action(state)
+
+            # Take step using this action and observe next state and reward
+
+            next_state, reward, terminated, _ = self.step(action)
+
+            # Use actor-critic to get next value
+
+            if terminated:
+                next_value = torch.tensor(0.0, dtype=torch.float32)
+            else:
+                next_state_tensor = torch.as_tensor(next_state, dtype=torch.float32)
+                probabilities, next_value = self.actor_critic(next_state_tensor)
+
+            # Compute advantage
+            
+            advantage = reward + ((self.options.gamma * next_value) - value)
+
+            # Update actor-critic
+            
+            self.update_actor_critic(advantage, prob, value)
+            
+            if terminated:
+                break
+                
+            state = next_state
+
+
+
     def actor_loss(self, advantage, prob):
         """
         The policy gradient loss function.
@@ -149,7 +181,11 @@ class A2C(AbstractSolver):
         """
         ################################
         #   YOUR IMPLEMENTATION HERE   #
-        ################################)
+        ################################
+
+        # Compute policy gradient loss
+
+        return -torch.log(prob) * advantage
 
     def critic_loss(self, advantage, value):
         """
@@ -165,6 +201,10 @@ class A2C(AbstractSolver):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        # Compute critic loss
+
+        return -1 * advantage * value
 
     def __str__(self):
         return "A2C"
