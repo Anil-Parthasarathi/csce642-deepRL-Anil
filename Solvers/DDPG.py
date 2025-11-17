@@ -22,6 +22,7 @@ from torch.distributions.normal import Normal
 from Solvers.Abstract_Solver import AbstractSolver
 from lib import plotting
 
+# Citation: copilot code completion assistance was utilized throughout
 
 class QNetwork(nn.Module):
     def __init__(self, obs_dim, act_dim, hidden_sizes):
@@ -155,6 +156,17 @@ class DDPG(AbstractSolver):
         #   YOUR IMPLEMENTATION HERE   #
         ################################
 
+        # Get greedy actions and then compute target q values using target actor-critic
+
+        greedy_actions = self.target_actor_critic.pi(next_states)
+        target_q_values = self.target_actor_critic.q(next_states, greedy_actions)
+
+        # Get the target values 
+        
+        target_values = rewards + (1 - dones) *self.options.gamma * target_q_values
+
+        return target_values
+
 
     def replay(self):
         """
@@ -220,7 +232,25 @@ class DDPG(AbstractSolver):
             ################################
             #   YOUR IMPLEMENTATION HERE   #
             ################################
-            
+
+            # Select action
+
+            action = self.select_action(state)
+
+            # Take step using this action and observe next state and reward
+
+            next_state, reward, terminated, _ = self.step(action)
+
+            # Store transition in replay and update target networks
+
+            self.memorize(state, action, reward, next_state, terminated)
+            self.replay() # Run it back
+            self.update_target_networks()
+
+            if terminated:
+                break
+
+            state = next_state
 
     def q_loss(self, current_q, target_q):
         """
@@ -236,6 +266,11 @@ class DDPG(AbstractSolver):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        # Compute the q loss BY GEetting squared difference between target and current q values
+
+        q_loss = torch.pow(target_q - current_q, 2)
+        return q_loss
 
     def pi_loss(self, states):
         """
@@ -258,6 +293,16 @@ class DDPG(AbstractSolver):
         ################################
         #   YOUR IMPLEMENTATION HERE   #
         ################################
+
+        # compute pi loss
+
+        # Get the greedy actions from the actor-critic policy based on the states 
+        # and then use  these actions to get q values
+
+        greedy_actions = self.actor_critic.pi(states)
+        q_values = self.actor_critic.q(states, greedy_actions)
+
+        return -1 * q_values
 
     def __str__(self):
         return "DDPG"
